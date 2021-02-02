@@ -50,60 +50,60 @@ jobs:
         run: |
           bump2version --new-version ${{ steps.bump_dry.outputs.new_tag }} patch
 
-      - name: "8. Commit new version"
-        uses: stefanzweifel/git-auto-commit-action@v4.1.6
-        with:
-          commit_message: Release ${{ steps.bump_dry.outputs.new_tag }}
-          branch: master
-          commit_user_name: Unit8 Bot
-          commit_user_email: info@unit8.co
-
-      - name: "9. Publish new tag"
-        uses: LeoTafti/github-tag-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CUSTOM_TAG: ${{steps.bump_dry.outputs.new_tag}}
-
-      - name: "10. Create new release"
-        id: create_release
-        uses: actions/create-release@latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.bump_dry.outputs.new_tag }}
-          release_name: Release ${{steps.bump_dry.outputs.part}} ${{ steps.bump_dry.outputs.new_tag }}
-          draft: false
-
-  deploy-docker:
-    needs: [release]
-    runs-on: ubuntu-latest
-    steps:
-      - name: "1. Clone repository"
-        uses: actions/checkout@v2
-
-      - name: "2. Determine current version"
-        uses: LeoTafti/github-tag-action@master
-        id: bump_dry
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DRY_RUN: true
-          BUMP_TYPE: ${{ github.event.inputs.bump_type}}
-
-      - name: "3. Login to docker hub"
-        run: docker login -u $DOCKER_HUB_USER -p $DOCKER_HUB_TOKEN
-        env:
-          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
-          DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
-
-      #check build.gradle file for explanation of next steps
-      - name: "4. Publish image with tag corresponding to current version"
-        run: |
-          ./gradlew dockerPushVersion -P version=${{ steps.bump_dry.outputs.tag }}
-
-      - name: "5. Publish image with tag 'latest' if not hotfix"
-        if: ${{ !contains(github.event.head_commit.message, '#hotfix') }}
-        run: |
-          ./gradlew dockerPushLatest
+#      - name: "8. Commit new version"
+#        uses: stefanzweifel/git-auto-commit-action@v4.1.6
+#        with:
+#          commit_message: Release ${{ steps.bump_dry.outputs.new_tag }}
+#          branch: master
+#          commit_user_name: Unit8 Bot
+#          commit_user_email: info@unit8.co
+#
+#      - name: "9. Publish new tag"
+#        uses: LeoTafti/github-tag-action@master
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#          CUSTOM_TAG: ${{steps.bump_dry.outputs.new_tag}}
+#
+#      - name: "10. Create new release"
+#        id: create_release
+#        uses: actions/create-release@latest
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          tag_name: ${{ steps.bump_dry.outputs.new_tag }}
+#          release_name: Release ${{steps.bump_dry.outputs.part}} ${{ steps.bump_dry.outputs.new_tag }}
+#          draft: false
+#
+#  deploy-docker:
+#    needs: [release]
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: "1. Clone repository"
+#        uses: actions/checkout@v2
+#
+#      - name: "2. Determine current version"
+#        uses: LeoTafti/github-tag-action@master
+#        id: bump_dry
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#          DRY_RUN: true
+#          BUMP_TYPE: ${{ github.event.inputs.bump_type}}
+#
+#      - name: "3. Login to docker hub"
+#        run: docker login -u $DOCKER_HUB_USER -p $DOCKER_HUB_TOKEN
+#        env:
+#          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
+#          DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+#
+#      #check build.gradle file for explanation of next steps
+#      - name: "4. Publish image with tag corresponding to current version"
+#        run: |
+#          ./gradlew dockerPushVersion -P version=${{ steps.bump_dry.outputs.tag }}
+#
+#      - name: "5. Publish image with tag 'latest' if not hotfix"
+#        if: ${{ !contains(github.event.head_commit.message, '#hotfix') }}
+#        run: |
+#          ./gradlew dockerPushLatest
 
 
   deploy-docs:
