@@ -195,6 +195,7 @@ class TimeSeries:
         pandas.DataFrame
             The Pandas Dataframe of quantiles
         """
+        raise_if(self._quantiles_df is None, 'This time series does not contain quantiles.')
         if copy:
             return self._quantiles_df.copy()
         else:
@@ -372,24 +373,17 @@ class TimeSeries:
 
         return gap_df
 
-    def copy(self, deep: bool = True) -> 'TimeSeries':
+    def copy(self) -> 'TimeSeries':
         """
         Make a copy of this time series object
-
-        Parameters
-        ----------
-        deep
-            Make a deep copy. If False, the underlying pandas DataFrame will be the same
 
         Returns
         -------
         TimeSeries
             A copy of this time series.
         """
-        if deep:
-            return TimeSeries(self.pd_dataframe(), self.quantiles_pd_dataframe(), self.freq_str())
-        else:
-            return TimeSeries(self._df, self._quantiles_df, self.freq_str())
+        return TimeSeries(self._df, self._quantiles_df, self.freq_str(),
+                          fill_missing_dates=False, dummy_index=self.has_dummy_index)
 
     def _raise_if_not_within(self, ts: pd.Timestamp):
         if (ts < self.start_time()) or (ts > self.end_time()):
@@ -484,7 +478,7 @@ class TimeSeries:
         start_series: pd.Timestamp = ts + self.freq()  # new series does not include ts
         return self.slice(start_series, self.end_time())
 
-    def slice(self, start_ts: pd.Timestamp, end_ts: pd.Timestamp, copy=True) -> 'TimeSeries':
+    def slice(self, start_ts: pd.Timestamp, end_ts: pd.Timestamp) -> 'TimeSeries':
         """
         Returns a new TimeSeries, starting later than `start_ts` and ending before `end_ts`, inclusive on both ends.
         The timestamps don't have to be in the series.
@@ -495,8 +489,6 @@ class TimeSeries:
             The timestamp that indicates the left cut-off.
         end_ts
             The timestamp that indicates the right cut-off.
-        copy
-            If True, the returned series will contain a copy of this serie's dataframe, otherwise a view
 
         Returns
         -------
@@ -514,9 +506,12 @@ class TimeSeries:
                 s_a = s[s.index >= start_ts]
                 return s_a[s_a.index <= end_ts]
             return None
-        return TimeSeries(_slice_not_none(self.pd_dataframe(copy=copy)), self.freq_str())
+        new_df = _slice_not_none(self._df)
+        new_quantiles_df = _slice_not_none(self._quantiles_df)
+        return TimeSeries(new_df, new_quantiles_df, self.freq_str(),
+                          fill_missing_dates=False, dummy_index=self.has_dummy_index)
 
-    def slice_n_points_after(self, start_ts: pd.Timestamp, n: int, copy=True) -> 'TimeSeries':
+    def slice_n_points_after(self, start_ts: pd.Timestamp, n: int) -> 'TimeSeries':
         """
         Returns a new TimeSeries, starting later than `start_ts` (included) and having at most `n` points.
 
@@ -528,8 +523,6 @@ class TimeSeries:
             The timestamp that indicates the splitting time.
         n
             The maximal length of the new TimeSeries.
-        copy
-            If True, the returned series will contain a copy of this serie's dataframe, otherwise a view
 
         Returns
         -------
@@ -538,14 +531,14 @@ class TimeSeries:
         """
         raise_if_not(n >= 0, 'n should be a positive integer.', logger)  # TODO: logically raise if n<3, cf. init
         if not isinstance(n, int):
-            logger.warning(f"Converted n to int from {n} to {int(n)}")
+            logger.warning(f"Converting n to int: from {n} to {int(n)}")
             n = int(n)
         self._raise_if_not_within(start_ts)
         start_ts = self.time_index()[self.time_index() >= start_ts][0]  # closest index after start_ts (new start_ts)
         end_ts: pd.Timestamp = start_ts + (n - 1) * self.freq()  # (n-1) because slice() is inclusive on both sides
-        return self.slice(start_ts, end_ts, copy)
+        return self.slice(start_ts, end_ts)
 
-    def slice_n_points_before(self, end_ts: pd.Timestamp, n: int, copy=True) -> 'TimeSeries':
+    def slice_n_points_before(self, end_ts: pd.Timestamp, n: int) -> 'TimeSeries':
         """
         Returns a new TimeSeries, ending before `end_ts` (included) and having at most `n` points.
 
@@ -557,8 +550,6 @@ class TimeSeries:
             The timestamp that indicates the splitting time.
         n
             The maximal length of the new time series.
-        copy
-            If True, the returned series will contain a copy of this serie's dataframe, otherwise a view
 
         Returns
         -------
@@ -567,12 +558,12 @@ class TimeSeries:
         """
         raise_if_not(n >= 0, 'n should be a positive integer.', logger)
         if not isinstance(n, int):
-            logger.warning(f"Converted n to int from {n} to {int(n)}")
+            logger.warning(f"Converting n to int: from {n} to {int(n)}")
             n = int(n)
         self._raise_if_not_within(end_ts)
         end_ts = self.time_index()[self.time_index() <= end_ts][-1]
         start_ts: pd.Timestamp = end_ts - (n - 1) * self.freq()  # (n-1) because slice() is inclusive on both sides
-        return self.slice(start_ts, end_ts, copy)
+        return self.slice(start_ts, end_ts)
 
     def slice_intersect(self, other: 'TimeSeries') -> 'TimeSeries':
         """
@@ -660,12 +651,12 @@ class TimeSeries:
         new_start_idx = self._df.first_valid_index()
         new_end_idx = self._df.last_valid_index()
         new_series = self._df.loc[new_start_idx:new_end_idx]
-
-        return TimeSeries(new_series, self.freq_str())
+        new_quantiles = self._quantiles_df.loc[new_start_idx:new_end_idx] if self._quantiles_df is not None else None
+        return TimeSeries(new_series, new_quantiles, self.freq_str())
 
     def longest_contiguous_slice(self, max_gap_size: int = 0) -> 'TimeSeries':
         """
-        Returns the largest TimeSeries slice of this time series that contains no gaps (contigouse all-NaN rows)
+        Returns the largest TimeSeries slice of this time series that contains no gaps (contiguous all-NaN rows)
         larger than `max_gap_size`.
 
         Returns
@@ -697,31 +688,6 @@ class TimeSeries:
 
         return stripped_series[max_slice_start:max_slice_end]
 
-    # TODO: other rescale? such as giving a ratio, or a specific position? Can be the same function
-    def rescale_with_value(self, value_at_first_step: float) -> 'TimeSeries':
-        """
-        Returns a new TimeSeries, which is a multiple of this TimeSeries such that
-        the first value is `value_at_first_step`.
-        (Note: numerical errors can appear with `value_at_first_step > 1e+24`).
-
-        Parameters
-        ----------
-        value_at_first_step
-            The new value for the first entry of the TimeSeries.
-
-        Returns
-        -------
-        TimeSeries
-            A new TimeSeries, where the first value is `value_at_first_step` and other values
-            have been scaled accordingly.
-        """
-
-        raise_if_not((self.values()[0] != 0).all(), 'Cannot rescale with first value 0.', logger)
-
-        coef = value_at_first_step / self.values()[0]  # TODO: should the new TimeSeries have the same dtype?
-        new_series = coef * self._df
-        return TimeSeries(new_series, self.freq_str())
-
     def shift(self, n: int) -> 'TimeSeries':
         """
         Shifts the time axis of this TimeSeries by `n` time steps.
@@ -752,14 +718,21 @@ class TimeSeries:
         new_time_index = self._df.index.map(lambda ts: ts + n * self.freq())
         new_series = self._df.copy()
         new_series.index = new_time_index
-        return TimeSeries(new_series, self.freq_str())
+        if self._quantiles_df is not None:
+            new_quantiles_series = self._quantiles_df.copy()
+            new_quantiles_series.index = new_time_index
+        else:
+            new_quantiles_series = None
+        return TimeSeries(new_series, new_quantiles_series, self.freq_str())
 
+    # TODO: could the dropna below sometimes screw up our indexing?
     def diff(self,
              n: Optional[int] = 1,
              periods: Optional[int] = 1,
              dropna: Optional[bool] = True) -> 'TimeSeries':
         """
         Returns a differenced time series. This is often used to make a time series stationary.
+        If this series contains quantiles, the differencing will also apply to them.
 
         Parameters
         ----------
@@ -781,15 +754,22 @@ class TimeSeries:
         if not isinstance(periods, int):
              raise_log(ValueError("'periods' must be an integer."))
 
-        diff_df = self._df.diff(periods=periods)
-        for _ in range(n-1):
-            diff_df = diff_df.diff(periods=periods)
-        if dropna:
-            diff_df.dropna(inplace=True)
-        return TimeSeries(diff_df, freq=None, fill_missing_dates=False)
+        def _difference_df(df):
+            diff_df = df.diff(periods=periods)
+            for _ in range(n-1):
+                diff_df = diff_df.diff(periods=periods)
+            if dropna:
+                diff_df.dropna(inplace=True)
+            return diff_df
+
+        new_df = _difference_df(self._df)
+        new_quantiles_df = _difference_df(self._quantiles_df) if self._quantiles_df is not None else None
+
+        return TimeSeries(new_df, new_quantiles_df, freq=None, fill_missing_dates=False)
 
     @staticmethod
     def from_series(pd_series: pd.Series,
+                    quantiles_df: Optional[pd.DataFrame] = None,
                     freq: Optional[str] = None,
                     fill_missing_dates: Optional[bool] = True,
                     dummy_index: Optional[bool] = False) -> 'TimeSeries':
@@ -800,6 +780,9 @@ class TimeSeries:
         ----------
         pd_series
             The pandas Series instance.
+        quantiles_df
+            Optionally, a DataFrame containing quantiles (with column names representing either fraction
+            values between 0 and 1, or percentage values between 0 and 100).
         freq
             Optionally, a string representing the frequency of the Pandas Series.
         fill_missing_dates
@@ -815,12 +798,13 @@ class TimeSeries:
         TimeSeries
             A TimeSeries constructed from the inputs.
         """
-        return TimeSeries(pd.DataFrame(pd_series), freq, fill_missing_dates, dummy_index)
+        return TimeSeries(pd.DataFrame(pd_series), quantiles_df, freq, fill_missing_dates, dummy_index)
 
     @staticmethod
     def from_dataframe(df: pd.DataFrame,
                        time_col: Optional[str] = None,
                        value_cols: Optional[Union[List[str], str]] = None,
+                       quantiles_df: Optional[pd.DataFrame] = None,
                        freq: Optional[str] = None,
                        fill_missing_dates: Optional[bool] = True,
                        dummy_index: Optional[bool] = False) -> 'TimeSeries':
@@ -838,6 +822,11 @@ class TimeSeries:
         value_cols
             A string or list of strings representing the value column(s) to be extracted from the DataFrame. If set to
             `None` use the whole DataFrame.
+        quantiles_df
+            Optionally, a DataFrame containing the quantiles of the marginal distributions for each of this series'
+            components.
+            The names of the columns must follow the rules explained in the TimeSeries constructor docstring.
+            If `value_cols` is provided, only the columns whose name start by some name in `value_cols` will be kept.
         freq
             Optionally, a string representing the frequency of the Pandas DataFrame.
         fill_missing_dates
@@ -856,18 +845,24 @@ class TimeSeries:
         raise_if(dummy_index and time_col, "If time_col is given, dummy_index must be false.", logger)
         if value_cols is None:
             series_df = df.loc[:, df.columns != time_col]
+            quant_df = quantiles_df
         else:
             if isinstance(value_cols, str):
                 value_cols = [value_cols]
             series_df = df[value_cols]
+            valid_quantile_columns = list(filter(lambda c: sum([c.startswith(prefix) for prefix in value_cols]) > 0,
+                                                 quantiles_df.columns.to_list()))
+            quant_df = quantiles_df[valid_quantile_columns]
 
         if not dummy_index:
             if time_col is None:
-                series_df.index = pd.to_datetime(df.index, errors='raise')
+                idx = pd.to_datetime(df.index, errors='raise')
             else:
-                series_df.index = pd.to_datetime(df[time_col], errors='raise')
+                idx = pd.to_datetime(df[time_col], errors='raise')
+            series_df.index = idx
+            quant_df.index = idx
 
-        return TimeSeries(series_df, freq, fill_missing_dates, dummy_index)
+        return TimeSeries(series_df, quant_df, freq, fill_missing_dates, dummy_index)
 
     @staticmethod
     def from_times_and_values(times: pd.DatetimeIndex,
@@ -877,6 +872,7 @@ class TimeSeries:
                               columns: Optional[pd._typing.Axes] = None) -> 'TimeSeries':
         """
         Returns TimeSeries built from an index and values.
+        At the moment this mode does not support creating time series with quantiles. (TODO).
 
         Parameters
         ----------
@@ -900,7 +896,7 @@ class TimeSeries:
         df = pd.DataFrame(values, index=times)
         if columns is not None:
             df.columns = columns
-        return TimeSeries(df, freq, fill_missing_dates)
+        return TimeSeries(df, None, freq, fill_missing_dates)
 
     def _create_dummy_index(self, start="19700101", freq="S") -> pd.DatetimeIndex:
         """
