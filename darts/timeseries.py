@@ -2,7 +2,8 @@
 Timeseries
 ----------
 
-`TimeSeries` is the main class in `darts`. It represents a univariate or multivariate time series.
+`TimeSeries` is the main class in `darts`. It represents a univariate or multivariate time series, along with
+optional quantiles describing the marginal distributions of the series' values.
 """
 
 import pandas as pd
@@ -10,7 +11,7 @@ import numpy as np
 from copy import deepcopy
 import matplotlib.pyplot as plt
 from pandas.tseries.frequencies import to_offset
-from typing import Tuple, Optional, Callable, Any, List, Union
+from typing import Tuple, Optional, Callable, Any, List, Union, Set
 from inspect import signature
 
 from .logging import raise_log, raise_if_not, raise_if, get_logger
@@ -21,22 +22,42 @@ logger = get_logger(__name__)
 class TimeSeries:
     def __init__(self,
                  df: pd.DataFrame,
+                 quantiles_df: Optional[pd.DataFrame] = None,
                  freq: Optional[str] = None,
                  fill_missing_dates: Optional[bool] = True,
                  dummy_index: Optional[bool] = False):
         """
-        A TimeSeries is an object representing a univariate or multivariate time series.
+        A `TimeSeries` is an object representing a univariate or multivariate time series, along with
+        optional quantiles describing the marginal distributions of the series' values.
 
-        TimeSeries are meant to be immutable.
+        In case of multivariate series, the quantiles are meant to describe the distribution of
+        each component series individually (marginal distributions).
+
+        `TimeSeries` objects are designed to be immutable.
 
         Parameters
         ----------
         df
-            The actual time series, as a pandas DataFrame with a proper time index.
+            The actual time series, as a pandas DataFrame with a proper time index. This is meant to represent
+            "central" values.
+        quantiles_df
+            A DataFrame containing some quantiles of the marginal distributions of the individual components.
+            The columns in this DataFrame must have the same names as the columns in `df`, along with a postfix
+            describing the quantile. The format of the postfix must be "`_X`", where `X` is a fraction number
+            (between 0 and 1).
+
+            For instance: "`my_column_name_0.8`" indicates the 80-th percentile of the component named `my_column_name`.
+
+            For univariate series, it is enough to simply name the columns of `quantiles_df` with the fractions `X`.
+
+            If all values of `X` (for all columns) are between 0 and 100 (instead of 0 and 1), `X` will be interpreted
+            as a percentage value (instead of a fraction). All the columns in `df` must appear in `quantiles_df`, and
+            all columns have to have the same quantiles. `quantile_df` must be the same length as `df` and have the same
+            time index
         freq
             Optionally, a Pandas offset alias representing the frequency of the DataFrame.
             (https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases)
-            When creating a TimeSeries instance with a length smaller than 3, this argument must be passed.
+            When creating a `TimeSeries` instance with a length smaller than 3, this argument must be passed.
             Furthermore, this argument can be used to override the automatic frequency detection if the
             index is incomplete.
         fill_missing_dates
@@ -44,7 +65,7 @@ class TimeSeries:
             in case the frequency of `series` cannot be inferred.
         dummy_index
             Optionally, if no date time index is present, this flag will instruct Darts to build a
-            dummy time index in order to obtain a valid TimeSeries. This option can be used in cases
+            dummy time index in order to obtain a valid `TimeSeries`. This option can be used in cases
             where the time index doesn't matter.
         """
 
@@ -57,59 +78,70 @@ class TimeSeries:
                      ' is not passed', logger)
 
         self._df = df.sort_index()  # Sort by time **returns a copy**
+
+        if quantiles_df is not None:
+            # check and store the quantiles dataframe
+            TimeSeries._check_quantiles_df(df, quantiles_df)
+            self._quantiles_df = quantiles_df.sort_index()
+        else:
+            self._quantiles_df = None
+
         self.has_dummy_index = False
         if not dummy_index:
-            raise_if_not(isinstance(df.index, pd.DatetimeIndex), 'Time series must be indexed with a DatetimeIndex.',
-                     logger)
+            raise_if_not(isinstance(df.index, pd.DatetimeIndex), 'Time series must be indexed with a DatetimeIndex, or'
+                                                                 'dummy_index has to be set to True.',
+                         logger)
         else:
             raise_if(isinstance(df.index, pd.DatetimeIndex), (
                 'Time series must not be indexed with a DatetimeIndex if dummy_index=True.'
                 ),
                 logger
             )
-            self._df.index = self._create_dummy_index()
+            idx = self._create_dummy_index()
+            self._df.index = idx
+            if self._quantiles_df is not None:
+                self._quantiles_df.index = idx
             self.has_dummy_index = True
-        self._df.columns = self._clean_df_columns(df.columns)
+        self._df.columns = TimeSeries._clean_df_columns(self._df.columns, False)
+        if self._quantiles_df is not None:
+            self._quantiles_df.columns = TimeSeries._clean_df_columns(self._quantiles_df, True)
 
-        if (len(df) < 3):
+        if len(df) < 3:
             self._freq: str = freq
         else:
             if not self._df.index.inferred_freq:
                 if fill_missing_dates:
                     self._df = self._fill_missing_dates(self._df, freq)
+                    if self._quantiles_df is not None:
+                        self._quantiles_df = self._fill_missing_dates(self._quantiles_df, freq)
                 else:
                     raise_if_not(False, 'Could not infer frequency. Are some dates missing? '
                                         'Try specifying `fill_missing_dates=True` or specify '
                                         'the `freq` parameter.', logger)
             self._freq: str = self._df.index.inferred_freq  # Infer frequency
-            if (freq is not None and self._freq != freq):
+            if freq is not None and self._freq != freq:
                 logger.warning('The inferred frequency does not match the value of the "freq" argument.')
 
         self._df.index.freq = self._freq  # Set the inferred frequency in the Pandas dataframe
+        if self._quantiles_df is not None:
+            self._quantiles_df.freq = self._freq
+
+            # compute quantile values
+            first_col = self._df.columns.to_list()[0]
+            quantile_cols = self._quantiles_df.columns.to_list()
+            self.quantile_values = sorted([float(c.split('_')[-1]) for c in filter(lambda s: s.startswith(first_col),
+                                                                                   quantile_cols)])
+        else:
+            self.quantile_values = None
 
         # The actual values
         self._values: np.ndarray = self._df.values
-
-    def _clean_df_columns(self, columns: pd._typing.Axes) -> pd.Index:
-        """clean pandas dataFrame columns for usage with TimeSeries"""
-        # convert everything to str
-        columns_list = columns.to_list()
-        for i, column in enumerate(columns_list):
-            if not isinstance(column, str):
-                columns_list[i] = str(column)
-
-        columns = pd.Index(columns_list)
-
-        if isinstance(columns, pd.RangeIndex) or not columns.is_unique:
-            columns = pd.Index([str(i) for i in range(len(columns))])  # we make sure columns are str for indexing.
-
-        return columns
 
     def _assert_univariate(self):
         """
         Raises an error if the current TimeSeries instance is not univariate.
         """
-        if (self._df.shape[1] != 1):
+        if self._df.shape[1] != 1:
             raise_log(AssertionError('Only univariate TimeSeries instances support this method'), logger)
 
     def pd_series(self, copy=True) -> pd.Series:
@@ -132,6 +164,8 @@ class TimeSeries:
 
     def pd_dataframe(self, copy=True) -> pd.DataFrame:
         """
+        Returns the DataFrame of central values
+
         Parameters
         ----------
         copy
@@ -140,12 +174,41 @@ class TimeSeries:
         Returns
         -------
         pandas.DataFrame
-            The Pandas Dataframe underlying this time series
+            The Pandas Dataframe of central values underlying this time series
         """
         if copy:
             return self._df.copy()
         else:
             return self._df
+
+    def quantiles_pd_dataframe(self, copy=True) -> pd.DataFrame:
+        """
+        Returns the DataFrame of quantiles
+
+        Parameters
+        ----------
+        copy
+            Whether to return a copy of the dataframe. Leave it to True unless you know what you are doing.
+
+        Returns
+        -------
+        pandas.DataFrame
+            The Pandas Dataframe of quantiles
+        """
+        if copy:
+            return self._quantiles_df.copy()
+        else:
+            return self._quantiles_df
+
+    @property
+    def quantiles(self) -> List[float]:
+        """
+        Returns the list of quantiles represented in this time series. All quantiles are represented between 0 and 1
+        E.g.: [0.2, 0.8] means that this series contains the 20th and 80th percentiles
+        (in addition to the central value)
+        """
+        raise_if(self.quantile_values is None, 'This series does not contain quantiles.')
+        return self.quantile_values
 
     def columns(self):
         return self.pd_dataframe().columns
@@ -208,6 +271,9 @@ class TimeSeries:
 
     def values(self, copy=True) -> np.ndarray:
         """
+        Returns the numpy array containing the values of this time series.
+        This contains the central values (not the quantiles).
+
         Parameters
         ----------
         copy
@@ -284,7 +350,7 @@ class TimeSeries:
         pd.DataFrame
             A pandas.DataFrame containing a row for every gap (rows with all-NaN values in underlying DataFrame)
             in this time series. The DataFrame contains three columns that include the start and end time stamps
-            of the gap and the integer length of the gap (in `self.freq()` units).
+            of the gap and the integer length of the gap (in `freq` units).
         """
 
         is_nan_series = self._df.isna().all(axis=1).astype(int)
@@ -321,9 +387,9 @@ class TimeSeries:
             A copy of this time series.
         """
         if deep:
-            return TimeSeries(self.pd_dataframe(), self.freq_str())
+            return TimeSeries(self.pd_dataframe(), self.quantiles_pd_dataframe(), self.freq_str())
         else:
-            return TimeSeries(self._df, self.freq_str())
+            return TimeSeries(self._df, self._quantiles_df, self.freq_str())
 
     def _raise_if_not_within(self, ts: pd.Timestamp):
         if (ts < self.start_time()) or (ts > self.end_time()):
@@ -836,7 +902,7 @@ class TimeSeries:
             df.columns = columns
         return TimeSeries(df, freq, fill_missing_dates)
 
-    def _create_dummy_index(self, start="19700101", freq="S") -> 'TimeSeries':
+    def _create_dummy_index(self, start="19700101", freq="S") -> pd.DatetimeIndex:
         """
         Returns a pd.DatetimeIndex. Used to attach a time index to a data frame.
 
@@ -1330,6 +1396,67 @@ class TimeSeries:
                      "Column name in each TimeSeries must match one to one.")
             series_df = combine_fn(df_a, df_b)
         return TimeSeries(series_df, self.freq_str())
+
+    @staticmethod
+    def _clean_df_columns(columns: pd._typing.Axes, is_quantiles=False) -> pd.Index:
+        """ Clean pandas dataFrame columns for usage with TimeSeries
+            1. Normalise all column names as strings
+            2. (for quantiles dataframe): normalise all quantile values between 0 and 1
+
+            Set is_quantiles to True to prepare the columns for the quantiles DF.
+
+            For quantiles df, at this stage we can assume that all columns exist, and that quantiles are either
+            between 0 and 1 or between 0 and 100.
+        """
+        # convert everything to str
+        columns_list = columns.to_list()
+        for i, column in enumerate(columns_list):
+            if not isinstance(column, str):
+                columns_list[i] = str(column)
+
+        if is_quantiles:
+            # normalise all quantiles between 0 and 1
+            quantile_vals = {float(c.split('_')[-1]) for c in filter(lambda s: s.startswith(columns_list[0]),
+                                                                     columns_list)}
+            normalise = max(quantile_vals) > 1.
+            for i, column in enumerate(columns_list):
+                tokens = column.split('_')
+                prefix, postfix = tokens[:-1], tokens[-1]
+                new_col_str = prefix + '_' + str(float(postfix) / 100.) if normalise else postfix
+                columns_list[i] = new_col_str
+
+        columns = pd.Index(columns_list)
+
+        if not is_quantiles and (isinstance(columns, pd.RangeIndex) or not columns.is_unique):
+            # this should happen only when there are no quantiles
+            columns = pd.Index([str(i) for i in range(len(columns))])  # we make sure columns are str for indexing.
+
+        return columns
+
+    @staticmethod
+    def _check_quantiles_df(df: pd.DataFrame, quantiles_df: pd.DataFrame) -> None:
+        raise_if_not(len(df) == len(quantiles_df), '`df` and `quantiles_df` must have the same length.')
+        raise_if_not((df.index == quantiles_df.index).all(), '`df` and `quantiles_df` must have the same index.')
+
+        columns = [str(c) if not isinstance(c, str) else c for c in df.columns.to_list()]
+        columns_quantiles = [str(c) if not isinstance(c, str) else c for c in quantiles_df.columns.to_list()]
+
+        def _get_quantile_values_for_column(column: str) -> Set[float]:
+            return {float(c.split('_')[-1]) for c in filter(lambda s: s.startswith(column), columns_quantiles)}
+
+        # check that all quantiles are equal to the quantile of the first column
+        quantile_vals = _get_quantile_values_for_column(columns[0])
+        raise_if_not(len(quantile_vals) > 0, 'There must be at least one quantile column for each component.')
+
+        raise_if_not(min(quantile_vals) >= 0. and max(quantile_vals) <= 100.,
+                     'Quantiles must be between 0 and 1 or between 0 and 100.')
+
+        for column in columns:
+            quantiles_for_col = _get_quantile_values_for_column(column)
+            raise_if_not(quantiles_for_col == quantile_vals,
+                         'The column {} does not contain the same quantiles as the column {}. Column {} quantiles = {}; '
+                         'column {} quantiles = {}.'.format(column, columns[0], column, quantiles_for_col, columns[0],
+                                                            quantile_vals))
 
     @staticmethod
     def _fill_missing_dates(series: pd.DataFrame, freq: Optional[str] = None) -> pd.DataFrame:
