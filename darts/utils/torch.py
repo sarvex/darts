@@ -33,10 +33,7 @@ def _is_method(func: Callable[..., Any]) -> bool:
         true if `func` is a method, false otherwise.
     """
     spec = signature(func)
-    if len(spec.parameters) > 0:
-        if list(spec.parameters.keys())[0] == 'self':
-            return True
-    return False
+    return len(spec.parameters) > 0 and list(spec.parameters.keys())[0] == 'self'
 
 
 def random_method(decorated: Callable[..., T]) -> Callable[..., T]:
@@ -55,7 +52,7 @@ def random_method(decorated: Callable[..., T]) -> Callable[..., T]:
 
     @wraps(decorated)
     def decorator(self, *args, **kwargs) -> T:
-        if "random_state" in kwargs.keys():
+        if "random_state" in kwargs:
             self._random_instance = check_random_state(kwargs["random_state"])
         elif not hasattr(self, "_random_instance"):
             self._random_instance = check_random_state(randint(0, high=MAX_NUMPY_SEED_VALUE))
@@ -63,4 +60,5 @@ def random_method(decorated: Callable[..., T]) -> Callable[..., T]:
         with fork_rng():
             manual_seed(self._random_instance.randint(0, high=MAX_TORCH_SEED_VALUE))
             decorated(self, *args, **kwargs)
+
     return decorator

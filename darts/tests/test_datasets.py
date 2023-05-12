@@ -8,13 +8,16 @@ class DatasetTestCase(DartsBaseTestClass):
     cov1, cov2 = gaussian_timeseries(length=100), gaussian_timeseries(length=150)
 
     def _assert_eq(self, tup_ar, tup_series):
-        l1 = []
-        for ar_element in tup_ar:
-            l1.append(None if ar_element is None else list(ar_element))
-        l2 = []
-        for series_element in tup_series:
-            l2.append(None if series_element is None else list(series_element.values(copy=False)))
-
+        l1 = [
+            None if ar_element is None else list(ar_element)
+            for ar_element in tup_ar
+        ]
+        l2 = [
+            None
+            if series_element is None
+            else list(series_element.values(copy=False))
+            for series_element in tup_series
+        ]
         self.assertEqual(l1, l2)
 
     def test_simple_inference_dataset(self):

@@ -73,9 +73,7 @@ class Scaler(InvertibleDataTransformer, FittableDataTransformer):
 
     @staticmethod
     def ts_fit(series: TimeSeries, transformer, *args, **kwargs) -> Any:
-        # fit_parameter will receive the transformer object instance
-        scaler = transformer.fit(series.values().reshape((-1, series.width)))
-        return scaler
+        return transformer.fit(series.values().reshape((-1, series.width)))
 
     def _fit_iterator(self, series: Sequence[TimeSeries]) -> Iterator[Tuple[TimeSeries, Any]]:
         # generator which returns deep copies of the 'scaler' argument

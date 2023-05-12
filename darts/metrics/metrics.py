@@ -127,11 +127,11 @@ def _get_values_or_raise(series_a: TimeSeries,
     series_a_common = series_a.slice_intersect(series_b) if intersect else series_a
     series_b_common = series_b.slice_intersect(series_a) if intersect else series_b
 
-    raise_if_not(series_a_common.has_same_time_as(series_b_common), 'The two time series (or their intersection) '
-                                                                    'must have the same time index.'
-                                                                    '\nFirst series: {}\nSecond series: {}'.format(
-                                                                    series_a.time_index(), series_b.time_index()),
-                 logger)
+    raise_if_not(
+        series_a_common.has_same_time_as(series_b_common),
+        f'The two time series (or their intersection) must have the same time index.\nFirst series: {series_a.time_index()}\nSecond series: {series_b.time_index()}',
+        logger,
+    )
 
     return series_a_common.univariate_values(), series_b_common.univariate_values()
 
@@ -658,15 +658,13 @@ def mase(actual_series: Union[TimeSeries, Sequence[TimeSeries]],
                                         verbose=verbose,
                                         total=len(actual_series))
 
-        value_list = _parallel_apply(iterator=iterator,
-                                     fn=_multivariate_mase,
-                                     n_jobs=n_jobs,
-                                     fn_args=dict(),
-                                     fn_kwargs={
-                                         "m": m,
-                                         "intersect": intersect,
-                                         "reduction": reduction
-                                     })
+        value_list = _parallel_apply(
+            iterator=iterator,
+            fn=_multivariate_mase,
+            n_jobs=n_jobs,
+            fn_args={},
+            fn_kwargs={"m": m, "intersect": intersect, "reduction": reduction},
+        )
         return inter_reduction(value_list)
     else:
         raise_log(ValueError("Input type not supported, only TimeSeries and Sequence[TimeSeries] are accepted."))

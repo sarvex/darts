@@ -232,6 +232,6 @@ def _parallel_apply(iterator: Iterator[Tuple], fn: Callable, n_jobs: int, fn_arg
 
     """
 
-    returned_data = Parallel(n_jobs=n_jobs)(delayed(fn)(*sample, *fn_args, **fn_kwargs)
-                                            for sample in iterator)
-    return returned_data
+    return Parallel(n_jobs=n_jobs)(
+        delayed(fn)(*sample, *fn_args, **fn_kwargs) for sample in iterator
+    )

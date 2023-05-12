@@ -51,11 +51,13 @@ class RegressionModel(ExtendedForecastingModel):
         raise_if((lags is None) and (lags_exog is None),
             "At least one of `lags` or `lags_exog` must be not None."
         )
-        raise_if_not(isinstance(lags, (int, list)) or lags is None,
-            "`lags` must be of type int or list. Given: {}.".format(type(lags))
+        raise_if_not(
+            isinstance(lags, (int, list)) or lags is None,
+            f"`lags` must be of type int or list. Given: {type(lags)}.",
         )
-        raise_if_not(isinstance(lags_exog, (int, list)) or lags_exog is None,
-            "`lags_exog` must be of type int or list. Given: {}.".format(type(lags_exog))
+        raise_if_not(
+            isinstance(lags_exog, (int, list)) or lags_exog is None,
+            f"`lags_exog` must be of type int or list. Given: {type(lags_exog)}.",
         )
         raise_if(isinstance(lags, bool) or isinstance(lags_exog, bool),
             "`lags` and `lags_exog` must be of type int or list, not bool."
@@ -70,25 +72,32 @@ class RegressionModel(ExtendedForecastingModel):
 
         self.lags = lags
         if isinstance(self.lags, int):
-            raise_if_not(self.lags > 0, "`lags` must be strictly positive. Given: {}.".format(self.lags))
+            raise_if_not(
+                self.lags > 0,
+                f"`lags` must be strictly positive. Given: {self.lags}.",
+            )
             self.lags = list(range(1, self.lags+1))
         elif isinstance(self.lags, list):
             for lag in self.lags:
-                raise_if(not isinstance(lag, int) or (lag <= 0), (
-                    "Every element of `lags` must be a strictly positive integer. Given: {}.".format(self.lags))
+                raise_if(
+                    not isinstance(lag, int) or (lag <= 0),
+                    f"Every element of `lags` must be a strictly positive integer. Given: {self.lags}.",
                 )
 
         self.lags_exog = lags_exog
         if self.lags_exog == 0:
             self.lags_exog = [0]
         elif isinstance(self.lags_exog, int):
-            raise_if_not(self.lags_exog > 0, "`lags_exog` must be positive. Given: {}.".format(self.lags_exog))
+            raise_if_not(
+                self.lags_exog > 0,
+                f"`lags_exog` must be positive. Given: {self.lags_exog}.",
+            )
             self.lags_exog = list(range(1, self.lags_exog+1))
         elif isinstance(self.lags_exog, list):
             for lag in self.lags_exog:
-                raise_if(not isinstance(lag, int) or (lag < 0), (
-                    "Every element of `lags_exog` must be a positive integer. Given: {}."
-                    .format(self.lags_exog))
+                raise_if(
+                    not isinstance(lag, int) or (lag < 0),
+                    f"Every element of `lags_exog` must be a positive integer. Given: {self.lags_exog}.",
                 )
 
         self.model = model
@@ -178,7 +187,7 @@ class RegressionModel(ExtendedForecastingModel):
             training_data_list.append(lagged_data)
 
         if self.lags_exog is not None:
-            for i, col in enumerate(exog.columns()):
+            for col in exog.columns():
                 lagged_data = self._create_lagged_data(
                     series=exog[col], lags=self.lags_exog
                 )
@@ -208,7 +217,7 @@ class RegressionModel(ExtendedForecastingModel):
         lagged_series = series.pd_dataframe(copy=True)
         target_name = lagged_series.columns[0]
         for lag in lags:
-            new_column_name = target_name + "_lag{}".format(lag)
+            new_column_name = target_name + f"_lag{lag}"
             lagged_series[new_column_name] = lagged_series[target_name].shift(lag)
         lagged_series.drop(target_name, axis=1, inplace=True)
         return lagged_series
@@ -241,9 +250,9 @@ class RegressionModel(ExtendedForecastingModel):
 
         if exog is not None and self.lags_exog != [0]:
             required_start = self.training_series.end_time()+self.training_series.freq()
-            raise_if_not(exog.start_time() == required_start,
-                "`exog` first date must be equal to self.training_series.end_time()+1*freq. " +
-                "Given: {}. Needed: {}.".format(exog.start_time(), required_start)
+            raise_if_not(
+                exog.start_time() == required_start,
+                f"`exog` first date must be equal to self.training_series.end_time()+1*freq. Given: {exog.start_time()}. Needed: {required_start}.",
             )
         if isinstance(exog, TimeSeries):
             exog = exog.pd_dataframe(copy=False)

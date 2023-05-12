@@ -157,9 +157,11 @@ class RNNModel(TorchForecastingModel):
 
         # check we got right model type specified:
         if model not in ['RNN', 'LSTM', 'GRU']:
-            raise_if_not(isinstance(model, nn.Module), '{} is not a valid RNN model.\n Please specify "RNN", "LSTM", '
-                                                       '"GRU", or give your own PyTorch nn.Module'.format(
-                                                        model.__class__.__name__), logger)
+            raise_if_not(
+                isinstance(model, nn.Module),
+                f'{model.__class__.__name__} is not a valid RNN model.\n Please specify "RNN", "LSTM", "GRU", or give your own PyTorch nn.Module',
+                logger,
+            )
 
         self.input_chunk_length = input_chunk_length
         self.output_chunk_length = output_chunk_length
@@ -170,16 +172,16 @@ class RNNModel(TorchForecastingModel):
         self.dropout = dropout
 
     def _create_model(self, input_dim: int, output_dim: int) -> torch.nn.Module:
-        if self.rnn_type_or_module in ['RNN', 'LSTM', 'GRU']:
-            hidden_fc_sizes = [] if self.hidden_fc_sizes is None else self.hidden_fc_sizes
-            model = _RNNModule(name=self.rnn_type_or_module,
-                               input_size=input_dim,
-                               target_size=output_dim,
-                               hidden_dim=self.hidden_size,
-                               num_layers=self.n_rnn_layers,
-                               output_chunk_length=self.output_chunk_length,
-                               num_layers_out_fc=hidden_fc_sizes,
-                               dropout=self.dropout)
-        else:
-            model = self.rnn_type_or_module
-        return model
+        if self.rnn_type_or_module not in ['RNN', 'LSTM', 'GRU']:
+            return self.rnn_type_or_module
+        hidden_fc_sizes = [] if self.hidden_fc_sizes is None else self.hidden_fc_sizes
+        return _RNNModule(
+            name=self.rnn_type_or_module,
+            input_size=input_dim,
+            target_size=output_dim,
+            hidden_dim=self.hidden_size,
+            num_layers=self.n_rnn_layers,
+            output_chunk_length=self.output_chunk_length,
+            num_layers_out_fc=hidden_fc_sizes,
+            dropout=self.dropout,
+        )

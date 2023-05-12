@@ -178,9 +178,7 @@ def _crop_to_match_seasons(series: TimeSeries, required_matches: Optional[set]) 
     while (curr_ts < pred_ts - 4 * freq):
         curr_ts += freq
         if _compare_timestamps_on_attributes(pred_ts, curr_ts, required_matches):
-            new_series = series.drop_before(curr_ts)
-            return new_series
-
+            return series.drop_before(curr_ts)
     logger.warning("No matching timestamp could be found, returning original TimeSeries.")
     return series
 
@@ -231,7 +229,7 @@ class FFT(ForecastingModel):
         self.trend_poly_degree = trend_poly_degree
 
     def __str__(self):
-        return 'FFT(nr_freqs_to_keep=' + str(self.nr_freqs_to_keep) + ', trend=' + str(self.trend) + ')'
+        return f'FFT(nr_freqs_to_keep={str(self.nr_freqs_to_keep)}, trend={str(self.trend)})'
 
     def fit(self, series: TimeSeries):
         super().fit(series)

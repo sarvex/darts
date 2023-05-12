@@ -144,13 +144,9 @@ class FittableDataTransformer(BaseDataTransformer):
         """
         self._fit_called = True
 
-        desc = "Fitting ({})".format(self._name)
+        desc = f"Fitting ({self._name})"
 
-        if isinstance(series, TimeSeries):
-            data = [series]
-        else:
-            data = series
-
+        data = [series] if isinstance(series, TimeSeries) else series
         input_iterator = _build_tqdm_iterator(self._fit_iterator(data),
                                               verbose=self._verbose,
                                               desc=desc,

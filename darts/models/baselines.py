@@ -61,11 +61,15 @@ class NaiveSeasonal(ForecastingModel):
         return max(self.K, 3)
 
     def __str__(self):
-        return 'Naive seasonal model, with K={}'.format(self.K)
+        return f'Naive seasonal model, with K={self.K}'
 
     def fit(self, series: TimeSeries):
         super().fit(series)
-        raise_if_not(len(series) >= self.K, 'The time series requires at least K={} points'.format(self.K), logger)
+        raise_if_not(
+            len(series) >= self.K,
+            f'The time series requires at least K={self.K} points',
+            logger,
+        )
         self.last_k_vals = series.univariate_values()[-self.K:]
 
     def predict(self, n: int):

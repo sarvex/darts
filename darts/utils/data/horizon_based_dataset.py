@@ -107,9 +107,11 @@ class HorizonBasedDataset(TrainingDataset):
         # select the time series
         ts_target = self.target_series[ts_idx].values(copy=False)
 
-        raise_if_not(len(ts_target) >= (self.lookback + self.max_lh) * self.output_chunk_length,
-                     'The dataset contains some input/target series that are shorter than '
-                     '`(lookback + max_lh) * H` ({}-th)'.format(ts_idx))
+        raise_if_not(
+            len(ts_target)
+            >= (self.lookback + self.max_lh) * self.output_chunk_length,
+            f'The dataset contains some input/target series that are shorter than `(lookback + max_lh) * H` ({ts_idx}-th)',
+        )
 
         # select forecast point and target period, using the previously computed indexes
         if forecast_point_idx == self.output_chunk_length:
@@ -126,9 +128,10 @@ class HorizonBasedDataset(TrainingDataset):
         if self.covariates is not None:
             ts_covariate = self.covariates[ts_idx].values(copy=False)
 
-            raise_if_not(len(ts_covariate) == len(ts_target),
-                         'The dataset contains some target/covariate series '
-                         'pair that are not the same size ({}-th)'.format(ts_idx))
+            raise_if_not(
+                len(ts_covariate) == len(ts_target),
+                f'The dataset contains some target/covariate series pair that are not the same size ({ts_idx}-th)',
+            )
 
             input_covariate = ts_covariate[-(forecast_point_idx + self.lookback * self.output_chunk_length):-forecast_point_idx]
 

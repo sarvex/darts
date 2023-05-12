@@ -232,8 +232,7 @@ def groe_owa(ts: TimeSeries, model: ForecastingModel, fq: int, n1: int, m: int, 
             errors.append(np.sum(OWA))
         except ValueError:
             errors.append(0)
-    errors = np.sum(errors)
-    return errors
+    return np.sum(errors)
 
 
 class RModel(ForecastingModel):

@@ -2,6 +2,7 @@
 
 """
 
+
 from darts import ModelMode
 from darts.models import AutoARIMA, NaiveSeasonal
 from darts.utils.statistics import check_seasonality, remove_from_series, extract_trend_and_seasonality
@@ -32,13 +33,12 @@ if __name__ == "__main__":
         for train, test in _build_tqdm_iterator(zip(ts_train, ts_test), verbose=True):
             train_des = train
             seasonOut = 1
-            if m > 1:
-                if check_seasonality(train, m=m, max_lag=2*m):
-                    _, season = extract_trend_and_seasonality(train, m, model=ModelMode.MULTIPLICATIVE)
-                    train_des = remove_from_series(train, season, model=ModelMode.MULTIPLICATIVE)
-                    seasonOut = season[-m:].shift(m)
-                    seasonOut = seasonOut.append_values(seasonOut.values())
-                    seasonOut = seasonOut[:len(test)]
+            if m > 1 and check_seasonality(train, m=m, max_lag=2 * m):
+                _, season = extract_trend_and_seasonality(train, m, model=ModelMode.MULTIPLICATIVE)
+                train_des = remove_from_series(train, season, model=ModelMode.MULTIPLICATIVE)
+                seasonOut = season[-m:].shift(m)
+                seasonOut = seasonOut.append_values(seasonOut.values())
+                seasonOut = seasonOut[:len(test)]
             # if len(train_des) < 30:
             #     train_des = train_des.shift(-len(train)).append(train_des)
             autoar = AutoARIMA()

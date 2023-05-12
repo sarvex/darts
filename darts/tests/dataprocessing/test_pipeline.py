@@ -201,7 +201,10 @@ class PipelineTestCase(unittest.TestCase):
     def test_getitem(self):
         # given
 
-        transformers = [self.PlusTenTransformer(name="+10 transformer{}".format(i)) for i in range(0, 10)]
+        transformers = [
+            self.PlusTenTransformer(name=f"+10 transformer{i}")
+            for i in range(0, 10)
+        ]
         p = Pipeline(transformers)
 
         # when & then

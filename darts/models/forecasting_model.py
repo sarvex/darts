@@ -56,9 +56,10 @@ class ForecastingModel(ABC):
         series
             A target time series. The model will be trained to forecast this time series.
         """
-        raise_if_not(len(series) >= self.min_train_series_length,
-                     "Train series only contains {} elements but {} model requires at least {} entries"
-                     .format(len(series), str(self), self.min_train_series_length))
+        raise_if_not(
+            len(series) >= self.min_train_series_length,
+            f"Train series only contains {len(series)} elements but {str(self)} model requires at least {self.min_train_series_length} entries",
+        )
         self.training_series = series
         self._fit_called = True
 
@@ -272,11 +273,10 @@ class ForecastingModel(ABC):
                         start = train.end_time() + train.freq()
                         covar_argument["exog"] = covariates[start:start+(forecast_horizon-1)*train.freq()]
                     forecast = self.predict(n=forecast_horizon, **covar_argument)
+            elif 'series' in predict_signature.parameters:
+                forecast = self.predict(n=forecast_horizon, series=train)
             else:
-                if 'series' in predict_signature.parameters:
-                    forecast = self.predict(n=forecast_horizon, series=train)
-                else:
-                    forecast = self.predict(n=forecast_horizon)
+                forecast = self.predict(n=forecast_horizon)
 
             if last_points_only:
                 last_points_values.append(forecast.values()[-1])
@@ -377,24 +377,10 @@ class ForecastingModel(ABC):
             return metric(series, forecasts)
 
         errors = [metric(series, forecast) for forecast in forecasts]
-        if reduction is None:
-            return errors
-
-        return reduction(np.array(errors))
+        return errors if reduction is None else reduction(np.array(errors))
 
     @classmethod
-    def gridsearch(model_class,
-                   parameters: dict,
-                   series: TimeSeries,
-                   covariates: Optional[TimeSeries] = None,
-                   forecast_horizon: Optional[int] = None,
-                   start: Union[pd.Timestamp, float, int] = 0.5,
-                   last_points_only: bool = False,
-                   val_series: Optional[TimeSeries] = None,
-                   use_fitted_values: bool = False,
-                   metric: Callable[[TimeSeries, TimeSeries], float] = metrics.mape,
-                   reduction: Callable[[np.ndarray], float] = np.mean,
-                   verbose=False) -> Tuple['ForecastingModel', Dict]:
+    def gridsearch(cls, parameters: dict, series: TimeSeries, covariates: Optional[TimeSeries] = None, forecast_horizon: Optional[int] = None, start: Union[pd.Timestamp, float, int] = 0.5, last_points_only: bool = False, val_series: Optional[TimeSeries] = None, use_fitted_values: bool = False, metric: Callable[[TimeSeries, TimeSeries], float] = metrics.mape, reduction: Callable[[np.ndarray], float] = np.mean, verbose=False) -> Tuple['ForecastingModel', Dict]:
         """
         A function for finding the best hyper-parameters among a given set.
         This function has 3 modes of operation: Expanding window mode, split mode and fitted value mode.
@@ -470,9 +456,11 @@ class ForecastingModel(ABC):
                      "'val_target_series' or 'use_fitted_values'.", logger)
 
         if use_fitted_values:
-            raise_if_not(hasattr(model_class(), "fitted_values"),
-                         "The model must have a fitted_values attribute to compare with the train TimeSeries",
-                         logger)
+            raise_if_not(
+                hasattr(cls(), "fitted_values"),
+                "The model must have a fitted_values attribute to compare with the train TimeSeries",
+                logger,
+            )
 
         elif val_series is not None:
             raise_if_not(series.width == val_series.width,
@@ -490,14 +478,14 @@ class ForecastingModel(ABC):
         params_cross_product = list(product(*parameters.values()))
 
         # TODO: We should find a better object oriented way of handling covariates in GlobalForecastingModel
-        fit_signature = signature(model_class.fit)
-        predict_signature = signature(model_class.predict)
+        fit_signature = signature(cls.fit)
+        predict_signature = signature(cls.predict)
 
         # iterate through all combinations of the provided parameters and choose the best one
         iterator = _build_tqdm_iterator(params_cross_product, verbose)
         for param_combination in iterator:
             param_combination_dict = dict(list(zip(parameters.keys(), param_combination)))
-            model = model_class(**param_combination_dict)
+            model = cls(**param_combination_dict)
             if use_fitted_values:  # fitted value mode
                 if covariates is not None and 'covariates' in fit_signature.parameters:
                     model.fit(series, covariates=covariates)
@@ -527,9 +515,9 @@ class ForecastingModel(ABC):
             if error < min_error:
                 min_error = error
                 best_param_combination = param_combination_dict
-        logger.info('Chosen parameters: ' + str(best_param_combination))
+        logger.info(f'Chosen parameters: {str(best_param_combination)}')
 
-        return model_class(**best_param_combination), best_param_combination
+        return cls(**best_param_combination), best_param_combination
 
     def residuals(self,
                   series: TimeSeries,
@@ -577,9 +565,7 @@ class ForecastingModel(ABC):
 
         # compute residuals
         series_trimmed = series.slice_intersect(p)
-        residuals = series_trimmed - p
-
-        return residuals
+        return series_trimmed - p
 
 
 class GlobalForecastingModel(ForecastingModel, ABC):

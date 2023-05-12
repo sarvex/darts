@@ -22,8 +22,7 @@ def train_theta(ts, seasonality, n):
     # done to change easily the deseasonalization method
     theta = Theta(theta=0, season_mode=SeasonalityMode.NONE)
     theta.fit(ts)
-    forecast = theta.predict(n) * seasonality
-    return forecast
+    return theta.predict(n) * seasonality
 
 
 def train_theta_boxcox(ts, seasonality, n):
@@ -59,8 +58,7 @@ def train_theta_boxcox(ts, seasonality, n):
 def train_4theta(ts, n):
     fourtheta = FourTheta.select_best_model(ts, [1, 2, 3], m)
     fourtheta.fit(ts)
-    forecast = fourtheta.predict(n)
-    return forecast
+    return fourtheta.predict(n)
 
 
 if __name__ == "__main__":
@@ -81,13 +79,12 @@ if __name__ == "__main__":
         for train, test in _build_tqdm_iterator(zip(ts_train, ts_test), verbose=True):
             train_des = train
             seasonOut = 1
-            if m > 1:
-                if check_seasonality(train, m=m, max_lag=2*m):
-                    _, season = extract_trend_and_seasonality(train, m, model=SeasonalityMode.MULTIPLICATIVE)
-                    train_des = remove_from_series(train, season, model=SeasonalityMode.MULTIPLICATIVE)
-                    seasonOut = season[-m:].shift(m)
-                    seasonOut = seasonOut.append_values(seasonOut.values())
-                    seasonOut = seasonOut[:len(test)]
+            if m > 1 and check_seasonality(train, m=m, max_lag=2 * m):
+                _, season = extract_trend_and_seasonality(train, m, model=SeasonalityMode.MULTIPLICATIVE)
+                train_des = remove_from_series(train, season, model=SeasonalityMode.MULTIPLICATIVE)
+                seasonOut = season[-m:].shift(m)
+                seasonOut = seasonOut.append_values(seasonOut.values())
+                seasonOut = seasonOut[:len(test)]
 
             forecast_theta = train_theta(train_des, seasonOut, len(test))
             forecast_fourtheta = train_4theta(train, len(test))

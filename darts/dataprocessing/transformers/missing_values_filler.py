@@ -36,9 +36,11 @@ class MissingValuesFiller(BaseDataTransformer):
         verbose
             Optionally, whether to print operations progress
         """
-        raise_if_not(isinstance(fill, str) or isinstance(fill, float),
-                     "`fill` should either be a string or a float",
-                     logger)
+        raise_if_not(
+            isinstance(fill, (str, float)),
+            "`fill` should either be a string or a float",
+            logger,
+        )
         raise_if(isinstance(fill, str) and fill != 'auto',
                  "invalid string for `fill`: can only be set to 'auto'",
                  logger)

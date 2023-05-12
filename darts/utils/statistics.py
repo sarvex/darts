@@ -68,7 +68,7 @@ def check_seasonality(ts: TimeSeries,
     candidates = argrelmax(r)[0]
 
     if len(candidates) == 0:
-        logger.info('The ACF has no local maximum for m < max_lag = {}.'.format(max_lag))
+        logger.info(f'The ACF has no local maximum for m < max_lag = {max_lag}.')
         return False, 0
 
     if m is not None:
@@ -124,8 +124,7 @@ def _bartlett_formula(r: np.ndarray,
 
 def extract_trend_and_seasonality(ts: TimeSeries,
                                   freq: int = None,
-                                  model: Union[SeasonalityMode, ModelMode] = ModelMode.MULTIPLICATIVE) -> \
-        Tuple[TimeSeries, TimeSeries]:
+                                  model: Union[SeasonalityMode, ModelMode] = ModelMode.MULTIPLICATIVE) -> Tuple[TimeSeries, TimeSeries]:
     """
     Extracts trend and seasonality from a TimeSeries instance using `statsmodels.seasonal_decompose`.
 
@@ -147,8 +146,11 @@ def extract_trend_and_seasonality(ts: TimeSeries,
     """
 
     ts._assert_univariate()
-    raise_if_not(model in ModelMode or model in SeasonalityMode,
-                 "Unknown value for model_mode: {}.".format(model), logger)
+    raise_if_not(
+        model in ModelMode or model in SeasonalityMode,
+        f"Unknown value for model_mode: {model}.",
+        logger,
+    )
     raise_if_not(model is not SeasonalityMode.NONE, "The model must be either MULTIPLICATIVE or ADDITIVE.")
 
     decomp = seasonal_decompose(ts.pd_series(), period=freq, model=model.value, extrapolate_trend='freq')
@@ -184,15 +186,22 @@ def remove_from_series(ts: TimeSeries,
     """
 
     ts._assert_univariate()
-    raise_if_not(model in ModelMode or model in SeasonalityMode,
-                 "Unknown value for model_mode: {}.".format(model), logger)
+    raise_if_not(
+        model in ModelMode or model in SeasonalityMode,
+        f"Unknown value for model_mode: {model}.",
+        logger,
+    )
 
     if model.value == 'multiplicative':
         new_ts = ts / other
     elif model.value == 'additive':
         new_ts = ts - other
     else:
-        raise_log(ValueError('Invalid parameter; must be either ADDITIVE or MULTIPLICATIVE. Was: {}'.format(model)))
+        raise_log(
+            ValueError(
+                f'Invalid parameter; must be either ADDITIVE or MULTIPLICATIVE. Was: {model}'
+            )
+        )
     return new_ts
 
 
@@ -223,8 +232,7 @@ def remove_seasonality(ts: TimeSeries,
     raise_if_not(model is not SeasonalityMode.NONE, "The model must be either MULTIPLICATIVE or ADDITIVE.")
 
     _, seasonality = extract_trend_and_seasonality(ts, freq, model)
-    new_ts = remove_from_series(ts, seasonality, model)
-    return new_ts
+    return remove_from_series(ts, seasonality, model)
 
 
 def remove_trend(ts: TimeSeries,
@@ -250,8 +258,7 @@ def remove_trend(ts: TimeSeries,
     ts._assert_univariate()
 
     trend, _ = extract_trend_and_seasonality(ts, model=model)
-    new_ts = remove_from_series(ts, trend, model)
-    return new_ts
+    return remove_from_series(ts, trend, model)
 
 
 def plot_acf(ts: TimeSeries,
@@ -283,11 +290,7 @@ def plot_acf(ts: TimeSeries,
 
     r = acf(ts.values(), nlags=max_lag, fft=False)  # , alpha=alpha) and confint as output too
 
-    # Computes the confidence interval at level alpha for all lags.
-    stats = []
-    for i in range(1, max_lag + 1):
-        stats.append(_bartlett_formula(r[1:], i, len(ts)))
-
+    stats = [_bartlett_formula(r[1:], i, len(ts)) for i in range(1, max_lag + 1)]
     if (axis is None):
         plt.figure(figsize=fig_size)
         axis = plt

@@ -81,9 +81,12 @@ class ShiftedDataset(TrainingDataset):
         return self.ideal_nr_samples
 
     def __getitem__(self, idx) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
-        raise_if_not(min(len(ts) for ts in self.target_series) - self.length - self.shift + 1 > 0,
-                     "Every target series needs to be at least `length + shift` long")
-    
+        raise_if_not(
+            min(len(ts) for ts in self.target_series) - self.length - self.shift
+            > -1,
+            "Every target series needs to be at least `length + shift` long",
+        )
+
         # determine the index of the time series.
         ts_idx = idx // self.max_samples_per_ts
         ts_target = self.target_series[ts_idx].values(copy=False)
@@ -91,9 +94,10 @@ class ShiftedDataset(TrainingDataset):
         # determine the actual number of possible samples in this time series
         n_samples_in_ts = len(ts_target) - self.length - self.shift + 1
 
-        raise_if_not(n_samples_in_ts >= 1,
-                     'The dataset contains some time series that are too short to contain '
-                     '`input_chunk_length + `output_chunk_length` ({}-th series)'.format(ts_idx))
+        raise_if_not(
+            n_samples_in_ts >= 1,
+            f'The dataset contains some time series that are too short to contain `input_chunk_length + `output_chunk_length` ({ts_idx}-th series)',
+        )
 
         # Determine the index of the end of the output, starting from the end.
         # It is originally in [0, self.max_samples_per_ts), so we use a modulo to have it in [0, n_samples_in_ts)
@@ -114,9 +118,10 @@ class ShiftedDataset(TrainingDataset):
         if self.covariates is not None:
             ts_covariate = self.covariates[ts_idx].values(copy=False)
 
-            raise_if_not(len(ts_covariate) == len(ts_target),
-                         'The dataset contains some target/covariate series '
-                         'pair that are not the same size ({}-th)'.format(ts_idx))
+            raise_if_not(
+                len(ts_covariate) == len(ts_target),
+                f'The dataset contains some target/covariate series pair that are not the same size ({ts_idx}-th)',
+            )
 
             input_covariate = ts_covariate[-(self.length + end_of_output_idx + self.shift):-(end_of_output_idx + self.shift)]
 

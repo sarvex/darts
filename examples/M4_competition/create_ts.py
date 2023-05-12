@@ -2,6 +2,7 @@
 
 """
 
+
 from darts import TimeSeries
 import os
 import numpy as np
@@ -15,8 +16,16 @@ data_categories = ['Yearly', 'Quarterly', 'Monthly', 'Weekly', 'Daily', 'Hourly'
 train_datasets = []
 test_datasets = []
 for cat in data_categories:
-    train_datasets.append(pd.read_csv('./dataset/train/{}-train.csv'.format(cat), delimiter=',').set_index('V1').T)
-    test_datasets.append(pd.read_csv('./dataset/test/{}-test.csv'.format(cat), delimiter=',').set_index('V1').T)
+    train_datasets.append(
+        pd.read_csv(f'./dataset/train/{cat}-train.csv', delimiter=',')
+        .set_index('V1')
+        .T
+    )
+    test_datasets.append(
+        pd.read_csv(f'./dataset/test/{cat}-test.csv', delimiter=',')
+        .set_index('V1')
+        .T
+    )
 info_dataset = pd.read_csv('./dataset/M4-info.csv', delimiter=',').set_index('M4id')
 
 # creating time series
@@ -42,7 +51,10 @@ for i, dc in _build_tqdm_iterator(enumerate(data_categories), verbose=True):
                               freq=info_dataset.SP.str[0][dc[0]+'1'])
     for ts in _build_tqdm_iterator(train_set.columns, verbose=True):
         train_index = index
-        if dc == 'Yearly' and train_set.count()[ts] > (len(index) - forecast_horizon):
+        if (
+            dc == 'Yearly'
+            and train_set.count()[ts] > len(train_index) - forecast_horizon
+        ):
             print("ts too big, fallback to quarterly frequency")
             train_index = fallback_index
         series_train = TimeSeries.from_series(train_set[ts].dropna().set_axis(train_index[:train_set.count()[ts]]))

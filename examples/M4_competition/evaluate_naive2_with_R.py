@@ -2,6 +2,7 @@
 
 """
 
+
 from darts import TimeSeries, ModelMode
 from darts.models import NaiveSeasonal
 from darts.utils.statistics import check_seasonality, remove_from_series, extract_trend_and_seasonality
@@ -120,24 +121,23 @@ if __name__ == "__main__":
             r_train_des, r_seasonOut = test_seasonality(train.values(), len(test), m)
             train_des = train
             seasonOut = 1
-            if m > 1:
-                if check_seasonality(train, m=m, max_lag=2*m):
-                    _, season = extract_trend_and_seasonality(train, m, model=ModelMode.MULTIPLICATIVE)
-                    train_des = remove_from_series(train, season, model=ModelMode.MULTIPLICATIVE)
-                    seasonOut = season[-m:].shift(m)
-                    seasonOut = seasonOut.append_values(seasonOut.values())
-                    seasonOut = seasonOut[:len(test)]
-                    
+            if m > 1 and check_seasonality(train, m=m, max_lag=2 * m):
+                _, season = extract_trend_and_seasonality(train, m, model=ModelMode.MULTIPLICATIVE)
+                train_des = remove_from_series(train, season, model=ModelMode.MULTIPLICATIVE)
+                seasonOut = season[-m:].shift(m)
+                seasonOut = seasonOut.append_values(seasonOut.values())
+                seasonOut = seasonOut[:len(test)]
+
             season_diff.append(np.abs(train_des.values() - r_train_des)/np.abs(r_train_des))
-            
+
             train_des = TimeSeries.from_times_and_values(train.time_index(), r_train_des)
             seasonOut = TimeSeries.from_times_and_values(test.time_index(), r_seasonOut)
-            
+
             naive2 = NaiveSeasonal(K=1)
             naive2.fit(train_des)
-            
+
             forecast_naive2 = naive2.predict(len(test)) * seasonOut
-            
+
             mase_all.append(np.vstack([
                 mase_m4(train, test, forecast_naive2, m=m),
                 ]))
