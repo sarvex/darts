@@ -152,12 +152,12 @@ class Pipeline:
 
             for transformer in reversed(self._transformers):
                 data = transformer.inverse_transform(data)
-            return data
         else:
             for transformer in reversed(self._transformers):
                 if isinstance(transformer, InvertibleDataTransformer):
                     data = transformer.inverse_transform(data)
-            return data
+
+        return data
 
     def invertible(self) -> bool:
         """
@@ -186,7 +186,11 @@ class Pipeline:
         Pipeline
             Subset of pipeline determined by key.
         """
-        raise_if_not(isinstance(key, int) or isinstance(key, slice), "key must be either an int or a slice", logger)
+        raise_if_not(
+            isinstance(key, (int, slice)),
+            "key must be either an int or a slice",
+            logger,
+        )
 
         if isinstance(key, int):
             transformers = [self._transformers[key]]

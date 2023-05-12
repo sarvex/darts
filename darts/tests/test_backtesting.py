@@ -47,10 +47,9 @@ def compare_best_against_random(model_class, params, series):
     train, val = series.split_before(series.time_index()[-10])
     best_model_2, _ = model_class.gridsearch(params, train, val_series=val, metric=mape)
 
-    # intantiate model with random parameters from 'params'
-    random_param_choice = {}
-    for key in params.keys():
-        random_param_choice[key] = random.choice(params[key])
+    random_param_choice = {
+        key: random.choice(params[key]) for key in params.keys()
+    }
     random_model = model_class(**random_param_choice)
 
     # perform backtest forecasting on both models

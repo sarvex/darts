@@ -158,13 +158,9 @@ class BaseDataTransformer(ABC):
             Transformed data.
         """
 
-        desc = "Transform ({})".format(self._name)
+        desc = f"Transform ({self._name})"
 
-        if isinstance(series, TimeSeries):
-            data = [series]
-        else:
-            data = series
-
+        data = [series] if isinstance(series, TimeSeries) else series
         input_iterator = _build_tqdm_iterator(self._transform_iterator(data),
                                               verbose=self._verbose,
                                               desc=desc,

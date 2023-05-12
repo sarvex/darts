@@ -91,9 +91,7 @@ class SplitTimeSeriesSequence(Sequence):
             train_end_index = ts_length - self.horizon - test_size + 1
             test_start_index = ts_length - self.horizon - self.input_size - test_size + 1
 
-            if train_end_index < 0:
-                train_end_index = 0
-
+            train_end_index = max(train_end_index, 0)
             if train_end_index < self.input_size + self.horizon:
                 # Note: note that we don't have to check for test_start_index < 0 because train_end_index will always
                 # raise exception first.
@@ -120,14 +118,10 @@ class SplitTimeSeriesSequence(Sequence):
                 return self.data[i][test_start_index:]
 
     def __len__(self):
-        if self.axis == 0:
-            split_index = self._get_horizontal_split_index()
-            if self.type == 'train':
-                return split_index
-            else:
-                return len(self.data) - split_index
-        else:
+        if self.axis != 0:
             return len(self.data)
+        split_index = self._get_horizontal_split_index()
+        return split_index if self.type == 'train' else len(self.data) - split_index
 
     @classmethod
     def make_splitter(cls,
@@ -156,10 +150,7 @@ class SplitTimeSeriesSequence(Sequence):
         if single_timeseries:
             return train_set[0], test_set[0]
         else:
-            if lazy:
-                return train_set, test_set
-            else:
-                return list(train_set), list(test_set)
+            return (train_set, test_set) if lazy else (list(train_set), list(test_set))
 
 
 def train_test_split(

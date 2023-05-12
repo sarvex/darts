@@ -50,7 +50,7 @@ def raise_if_not(condition: bool, message: str = "", logger: logging.Logger = ge
     """
 
     if (not condition):
-        logger.error("ValueError: " + message)
+        logger.error(f"ValueError: {message}")
         raise ValueError(message)
 
 
@@ -96,7 +96,7 @@ def raise_log(exception: Exception, logger: logging.Logger = get_logger('main_lo
 
     exception_type = str(type(exception)).split("'")[1]
     message = str(exception)
-    logger.error(exception_type + ": " + message)
+    logger.error(f"{exception_type}: {message}")
 
     raise exception
 
@@ -142,7 +142,7 @@ class SuppressStdoutStderr(object):
     """
     def __init__(self):
         # Open a pair of null files
-        self.null_fds = [os.open(os.devnull, os.O_RDWR) for x in range(2)]
+        self.null_fds = [os.open(os.devnull, os.O_RDWR) for _ in range(2)]
         # Save the actual stdout (1) and stderr (2) file descriptors.
         self.save_fds = [os.dup(1), os.dup(2)]
 

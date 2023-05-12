@@ -2,6 +2,7 @@
 
 """
 
+
 from darts import ModelMode
 from darts.models import NaiveSeasonal, NaiveDrift, ExponentialSmoothing
 from darts.utils.statistics import check_seasonality, remove_from_series, extract_trend_and_seasonality
@@ -32,13 +33,12 @@ if __name__ == "__main__":
         for train, test in _build_tqdm_iterator(zip(ts_train, ts_test), verbose=True):
             train_des = train
             seasonOut = 1
-            if m > 1:
-                if check_seasonality(train, m=m, max_lag=2 * m):
-                    _, season = extract_trend_and_seasonality(train, m, model=ModelMode.MULTIPLICATIVE)
-                    train_des = remove_from_series(train, season, model=ModelMode.MULTIPLICATIVE)
-                    seasonOut = season[-m:].shift(m)
-                    seasonOut = seasonOut.append_values(seasonOut.values())
-                    seasonOut = seasonOut[:len(test)]
+            if m > 1 and check_seasonality(train, m=m, max_lag=2 * m):
+                _, season = extract_trend_and_seasonality(train, m, model=ModelMode.MULTIPLICATIVE)
+                train_des = remove_from_series(train, season, model=ModelMode.MULTIPLICATIVE)
+                seasonOut = season[-m:].shift(m)
+                seasonOut = seasonOut.append_values(seasonOut.values())
+                seasonOut = seasonOut[:len(test)]
             naive = NaiveDrift()
             naive2 = NaiveSeasonal(K=1)
             naiveSeason = NaiveSeasonal(K=m)
@@ -67,7 +67,7 @@ if __name__ == "__main__":
             forecast_holt = holt.predict(len(test)) * seasonOut
             forecast_damp = damp.predict(len(test)) * seasonOut
             forecast_comb = ((forecast_ses + forecast_holt + forecast_damp) / 3)
-            
+
             mase_all.append(np.vstack([
                 mase_m4(train, test, forecast_naiveSeason, m=m),
                 mase_m4(train, test, forecast_naive, m=m),

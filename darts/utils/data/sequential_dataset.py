@@ -85,9 +85,10 @@ class SequentialDataset(TrainingDataset):
         # determine the actual number of possible samples in this time series
         n_samples_in_ts = len(ts_target) - self.input_chunk_length - self.output_chunk_length + 1
 
-        raise_if_not(n_samples_in_ts >= 1,
-                     'The dataset contains some time series that are too short to contain '
-                     '`input_chunk_length + `output_chunk_length` ({}-th series)'.format(ts_idx))
+        raise_if_not(
+            n_samples_in_ts >= 1,
+            f'The dataset contains some time series that are too short to contain `input_chunk_length + `output_chunk_length` ({ts_idx}-th series)',
+        )
 
         # Determine the index of the forecasting point.
         # It is originally in [0, self.max_samples_per_ts), so we use a modulo to have it in [0, n_samples_in_ts)
@@ -109,9 +110,10 @@ class SequentialDataset(TrainingDataset):
         if self.covariates is not None:
             ts_covariate = self.covariates[ts_idx].values(copy=False)
 
-            raise_if_not(len(ts_covariate) == len(ts_target),
-                         'The dataset contains some target/covariate series '
-                         'pair that are not the same size ({}-th)'.format(ts_idx))
+            raise_if_not(
+                len(ts_covariate) == len(ts_target),
+                f'The dataset contains some target/covariate series pair that are not the same size ({ts_idx}-th)',
+            )
 
             input_covariate = ts_covariate[-(forecast_point_idx + self.input_chunk_length):-forecast_point_idx]
 

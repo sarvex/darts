@@ -125,10 +125,7 @@ class TimeSeries:
             A Pandas Series representation of this univariate time series.
         """
         self._assert_univariate()
-        if copy:
-            return self._df.iloc[:, 0].copy()
-        else:
-            return self._df.iloc[:, 0]
+        return self._df.iloc[:, 0].copy() if copy else self._df.iloc[:, 0]
 
     def pd_dataframe(self, copy=True) -> pd.DataFrame:
         """
@@ -142,10 +139,7 @@ class TimeSeries:
         pandas.DataFrame
             The Pandas Dataframe underlying this time series
         """
-        if copy:
-            return self._df.copy()
-        else:
-            return self._df
+        return self._df.copy() if copy else self._df
 
     def columns(self):
         return self.pd_dataframe().columns
@@ -218,10 +212,7 @@ class TimeSeries:
         numpy.ndarray
             The values composing the time series.
         """
-        if copy:
-            return np.copy(self._values)
-        else:
-            return self._values
+        return np.copy(self._values) if copy else self._values
 
     def univariate_values(self, copy=True) -> np.ndarray:
         """
@@ -327,8 +318,12 @@ class TimeSeries:
 
     def _raise_if_not_within(self, ts: pd.Timestamp):
         if (ts < self.start_time()) or (ts > self.end_time()):
-            raise_log(ValueError('Timestamp must be between {} and {}'.format(self.start_time(),
-                                                                              self.end_time())), logger)
+            raise_log(
+                ValueError(
+                    f'Timestamp must be between {self.start_time()} and {self.end_time()}'
+                ),
+                logger,
+            )
 
     def split_after(self, split_point: Union[pd.Timestamp, float, int]) -> Tuple['TimeSeries', 'TimeSeries']:
         """
@@ -472,8 +467,8 @@ class TimeSeries:
         """
         raise_if_not(n >= 0, 'n should be a positive integer.', logger)  # TODO: logically raise if n<3, cf. init
         if not isinstance(n, int):
-            logger.warning(f"Converted n to int from {n} to {int(n)}")
-            n = int(n)
+            logger.warning(f"Converted n to int from {n} to {n}")
+            n = n
         self._raise_if_not_within(start_ts)
         start_ts = self.time_index()[self.time_index() >= start_ts][0]  # closest index after start_ts (new start_ts)
         end_ts: pd.Timestamp = start_ts + (n - 1) * self.freq()  # (n-1) because slice() is inclusive on both sides
@@ -501,8 +496,8 @@ class TimeSeries:
         """
         raise_if_not(n >= 0, 'n should be a positive integer.', logger)
         if not isinstance(n, int):
-            logger.warning(f"Converted n to int from {n} to {int(n)}")
-            n = int(n)
+            logger.warning(f"Converted n to int from {n} to {n}")
+            n = n
         self._raise_if_not_within(end_ts)
         end_ts = self.time_index()[self.time_index() <= end_ts][-1]
         start_ts: pd.Timestamp = end_ts - (n - 1) * self.freq()  # (n-1) because slice() is inclusive on both sides
@@ -676,13 +671,17 @@ class TimeSeries:
             A new TimeSeries, with a shifted index.
         """
         if not isinstance(n, int):
-            logger.warning(f"Converted n to int from {n} to {int(n)}")
-            n = int(n)
+            logger.warning(f"Converted n to int from {n} to {n}")
+            n = n
         try:
             self.time_index()[-1] + n * self.freq()
         except pd.errors.OutOfBoundsDatetime:
-            raise_log(OverflowError("the add operation between {} and {} will "
-                                    "overflow".format(n * self.freq(), self.time_index()[-1])), logger)
+            raise_log(
+                OverflowError(
+                    f"the add operation between {n * self.freq()} and {self.time_index()[-1]} will overflow"
+                ),
+                logger,
+            )
         new_time_index = self._df.index.map(lambda ts: ts + n * self.freq())
         new_series = self._df.copy()
         new_series.index = new_time_index
@@ -1016,13 +1015,15 @@ class TimeSeries:
         raise_if(values is None, "'values' parameter should not be None.", logger)
         raise_if(index is None, "Index must be filled.")
         if (values is not None):
-            raise_if_not(len(values) == len(index), "The number of values must correspond "
-                                                    "to the number of indices: {} != {}".format(len(values),
-                                                                                                len(index)), logger)
-            raise_if_not(self._df.shape[1] == values.shape[1], "The number of columns in values must correspond "
-                                                               "to the number of columns in the current TimeSeries"
-                                                               "instance: {} != {}".format(self._df.shape[1],
-                                                                                           values.shape[1]))
+            raise_if_not(
+                len(values) == len(index),
+                f"The number of values must correspond to the number of indices: {len(values)} != {len(index)}",
+                logger,
+            )
+            raise_if_not(
+                self._df.shape[1] == values.shape[1],
+                f"The number of columns in values must correspond to the number of columns in the current TimeSeriesinstance: {self._df.shape[1]} != {values.shape[1]}",
+            )
 
         ignored_indices = [index.get_loc(ind) for ind in (set(index) - set(self.time_index()))]
         index = index.delete(ignored_indices)  # only contains indices that are present in the TimeSeries instance
@@ -1089,8 +1090,11 @@ class TimeSeries:
             A new univariate TimeSeries instance.
         """
 
-        raise_if_not(index >= 0 and index < self.width, 'The index must be between 0 and the number of components '
-                     'of the current TimeSeries instance - 1, {}'.format(self.width - 1), logger)
+        raise_if_not(
+            index >= 0 and index < self.width,
+            f'The index must be between 0 and the number of components of the current TimeSeries instance - 1, {self.width - 1}',
+            logger,
+        )
 
         return TimeSeries.from_series(self.pd_dataframe().iloc[:, index], freq=self.freq_str())
 
@@ -1287,9 +1291,7 @@ class TimeSeries:
         Optional[pandas.DataFrame]
             A new Pandas DataFrame, the result of [combine_fn], or None.
         """
-        if df_a is not None and df_b is not None:
-            return combine_fn(df_a, df_b)
-        return None
+        return None if df_a is None or df_b is None else combine_fn(df_a, df_b)
 
     @staticmethod
     def _op_or_none(df: Optional[pd.DataFrame], op: Callable[[pd.DataFrame], Any]):
@@ -1364,10 +1366,19 @@ class TimeSeries:
 
             raise_if_not(
                 len(observed_frequencies) == 1,
-                "Could not infer explicit frequency. Observed frequencies: "
-                + ('none' if len(observed_frequencies) == 0 else str(observed_frequencies))
-                + ". Is Series too short (n=2)?",
-                logger)
+                (
+                    (
+                        "Could not infer explicit frequency. Observed frequencies: "
+                        + (
+                            'none'
+                            if not observed_frequencies
+                            else str(observed_frequencies)
+                        )
+                    )
+                    + ". Is Series too short (n=2)?"
+                ),
+                logger,
+            )
 
             freq = observed_frequencies.pop()
 
@@ -1417,9 +1428,7 @@ class TimeSeries:
 
     def __eq__(self, other):
         if isinstance(other, TimeSeries):
-            if not self._df.equals(other.pd_dataframe()):
-                return False
-            return True
+            return bool(self._df.equals(other.pd_dataframe()))
         return False
 
     def __ne__(self, other):
@@ -1435,8 +1444,12 @@ class TimeSeries:
         elif isinstance(other, TimeSeries):
             return self._combine_from_pd_ops(other, lambda s1, s2: s1 + s2)
         else:
-            raise_log(TypeError('unsupported operand type(s) for + or add(): \'{}\' and \'{}\'.'
-                                .format(type(self).__name__, type(other).__name__)), logger)
+            raise_log(
+                TypeError(
+                    f"unsupported operand type(s) for + or add(): \'{type(self).__name__}\' and \'{type(other).__name__}\'."
+                ),
+                logger,
+            )
 
     def __radd__(self, other):
         return self + other
@@ -1448,8 +1461,12 @@ class TimeSeries:
         elif isinstance(other, TimeSeries):
             return self._combine_from_pd_ops(other, lambda s1, s2: s1 - s2)
         else:
-            raise_log(TypeError('unsupported operand type(s) for - or sub(): \'{}\' and \'{}\'.'
-                                .format(type(self).__name__, type(other).__name__)), logger)
+            raise_log(
+                TypeError(
+                    f"unsupported operand type(s) for - or sub(): \'{type(self).__name__}\' and \'{type(other).__name__}\'."
+                ),
+                logger,
+            )
 
     def __rsub__(self, other):
         return other + (-self)
@@ -1461,8 +1478,12 @@ class TimeSeries:
         elif isinstance(other, TimeSeries):
             return self._combine_from_pd_ops(other, lambda s1, s2: s1 * s2)
         else:
-            raise_log(TypeError('unsupported operand type(s) for * or mul(): \'{}\' and \'{}\'.'
-                                .format(type(self).__name__, type(other).__name__)), logger)
+            raise_log(
+                TypeError(
+                    f"unsupported operand type(s) for * or mul(): \'{type(self).__name__}\' and \'{type(other).__name__}\'."
+                ),
+                logger,
+            )
 
     def __rmul__(self, other):
         return self * other
@@ -1475,8 +1496,12 @@ class TimeSeries:
             new_series = self._df ** float(n)
             return TimeSeries(new_series, self.freq_str())
         else:
-            raise_log(TypeError('unsupported operand type(s) for ** or pow(): \'{}\' and \'{}\'.'
-                                .format(type(self).__name__, type(n).__name__)), logger)
+            raise_log(
+                TypeError(
+                    f"unsupported operand type(s) for ** or pow(): \'{type(self).__name__}\' and \'{type(n).__name__}\'."
+                ),
+                logger,
+            )
 
     def __truediv__(self, other):
         if isinstance(other, (int, float, np.integer)):
@@ -1492,8 +1517,12 @@ class TimeSeries:
 
             return self._combine_from_pd_ops(other, lambda s1, s2: s1 / s2)
         else:
-            raise_log(TypeError('unsupported operand type(s) for / or truediv(): \'{}\' and \'{}\'.'
-                                .format(type(self).__name__, type(other).__name__)), logger)
+            raise_log(
+                TypeError(
+                    f"unsupported operand type(s) for / or truediv(): \'{type(self).__name__}\' and \'{type(other).__name__}\'."
+                ),
+                logger,
+            )
 
     def __rtruediv__(self, n):
         return n * (self ** (-1))
@@ -1519,8 +1548,12 @@ class TimeSeries:
         elif isinstance(other, TimeSeries):
             series = self._df < other.pd_dataframe()
         else:
-            raise_log(TypeError('unsupported operand type(s) for < : \'{}\' and \'{}\'.'
-                                .format(type(self).__name__, type(other).__name__)), logger)
+            raise_log(
+                TypeError(
+                    f"unsupported operand type(s) for < : \'{type(self).__name__}\' and \'{type(other).__name__}\'."
+                ),
+                logger,
+            )
         return series  # TODO should we return only the ndarray, the pd series, or our timeseries?
 
     def __gt__(self, other):
@@ -1529,8 +1562,12 @@ class TimeSeries:
         elif isinstance(other, TimeSeries):
             series = self._df > other.pd_dataframe()
         else:
-            raise_log(TypeError('unsupported operand type(s) for > : \'{}\' and \'{}\'.'
-                                .format(type(self).__name__, type(other).__name__)), logger)
+            raise_log(
+                TypeError(
+                    f"unsupported operand type(s) for > : \'{type(self).__name__}\' and \'{type(other).__name__}\'."
+                ),
+                logger,
+            )
         return series
 
     def __le__(self, other):
@@ -1539,8 +1576,12 @@ class TimeSeries:
         elif isinstance(other, TimeSeries):
             series = self._df <= other.pd_dataframe()
         else:
-            raise_log(TypeError('unsupported operand type(s) for <= : \'{}\' and \'{}\'.'
-                                .format(type(self).__name__, type(other).__name__)), logger)
+            raise_log(
+                TypeError(
+                    f"unsupported operand type(s) for <= : \'{type(self).__name__}\' and \'{type(other).__name__}\'."
+                ),
+                logger,
+            )
         return series
 
     def __ge__(self, other):
@@ -1549,12 +1590,16 @@ class TimeSeries:
         elif isinstance(other, TimeSeries):
             series = self._df >= other.pd_dataframe()
         else:
-            raise_log(TypeError('unsupported operand type(s) for >= : \'{}\' and \'{}\'.'
-                                .format(type(self).__name__, type(other).__name__)), logger)
+            raise_log(
+                TypeError(
+                    f"unsupported operand type(s) for >= : \'{type(self).__name__}\' and \'{type(other).__name__}\'."
+                ),
+                logger,
+            )
         return series
 
     def __str__(self):
-        return str(self._df) + '\nFreq: {}'.format(self.freq_str())
+        return f'{str(self._df)}\nFreq: {self.freq_str()}'
 
     def __repr__(self):
         return self.__str__()

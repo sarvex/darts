@@ -137,13 +137,9 @@ class InvertibleDataTransformer(BaseDataTransformer):
         if hasattr(self, "_fit_called"):
             raise_if_not(self._fit_called, "fit() must have been called before inverse_transform()", logger)
 
-        desc = "Inverse ({})".format(self._name)
+        desc = f"Inverse ({self._name})"
 
-        if isinstance(series, TimeSeries):
-            data = [series]
-        else:
-            data = series
-
+        data = [series] if isinstance(series, TimeSeries) else series
         input_iterator = _build_tqdm_iterator(self._inverse_transform_iterator(data),
                                               verbose=self._verbose,
                                               desc=desc,

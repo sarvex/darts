@@ -282,7 +282,7 @@ def datetime_attribute_timeseries(time_index: Union[pd.DatetimeIndex, TimeSeries
         values_df = pd.get_dummies(values)
         # fill missing columns (in case not all values appear in time_index)
         for i in range(1, num_values_dict[attribute] + 1):
-            if not (i in values_df.columns):
+            if i not in values_df.columns:
                 values_df[i] = 0
         values_df = values_df[range(1, num_values_dict[attribute] + 1)]
     else:
@@ -290,6 +290,9 @@ def datetime_attribute_timeseries(time_index: Union[pd.DatetimeIndex, TimeSeries
     values_df.index = time_index
 
     if one_hot:
-        values_df.columns = [attribute + '_' + str(column_name) for column_name in values_df.columns]
+        values_df.columns = [
+            f'{attribute}_{str(column_name)}'
+            for column_name in values_df.columns
+        ]
 
     return TimeSeries(values_df)

@@ -60,8 +60,10 @@ if TORCH_AVAILABLE:
                 model.fit(self.ts_pass_train)
                 pred = model.predict(n=36)
                 mape_err = mape(self.ts_pass_val, pred)
-                self.assertTrue(mape_err < err, 'Model {} produces errors too high (one time '
-                                                'series). Error = {}'.format(model_cls, mape_err))
+                self.assertTrue(
+                    mape_err < err,
+                    f'Model {model_cls} produces errors too high (one time series). Error = {mape_err}',
+                )
 
         def test_multi_ts(self):
             for model_cls, kwargs, err in models_cls_kwargs_errs:
@@ -72,16 +74,23 @@ if TORCH_AVAILABLE:
                     model.predict(n=1)
                 pred = model.predict(n=36, series=self.ts_pass_train)
                 mape_err = mape(self.ts_pass_val, pred)
-                self.assertTrue(mape_err < err, 'Model {} produces errors too high (several time '
-                                'series). Error = {}'.format(model_cls, mape_err))
+                self.assertTrue(
+                    mape_err < err,
+                    f'Model {model_cls} produces errors too high (several time series). Error = {mape_err}',
+                )
 
                 # check prediction for several time series
                 pred_list = model.predict(n=36, series=[self.ts_pass_train, self.ts_pass_train_1])
-                self.assertTrue(len(pred_list) == 2, 'Model {} did not return a list of prediction'.format(model_cls))
+                self.assertTrue(
+                    len(pred_list) == 2,
+                    f'Model {model_cls} did not return a list of prediction',
+                )
                 for pred in pred_list:
                     mape_err = mape(self.ts_pass_val, pred)
-                    self.assertTrue(mape_err < err, 'Model {} produces errors too high (several time series 2). '
-                                                    'Error = {}'.format(model_cls, mape_err))
+                    self.assertTrue(
+                        mape_err < err,
+                        f'Model {model_cls} produces errors too high (several time series 2). Error = {mape_err}',
+                    )
 
         def test_covariates(self):
             for model_cls, kwargs, err in models_cls_kwargs_errs:
@@ -106,9 +115,11 @@ if TORCH_AVAILABLE:
 
                 pred = model.predict(n=12, series=self.ts_pass_train, covariates=self.time_covariates_train)
                 mape_err = mape(self.ts_pass_val, pred)
-                self.assertTrue(mape_err < err, 'Model {} produces errors too high (several time '
-                                                'series with covariates). Error = {}'.format(model_cls, mape_err))
-                
+                self.assertTrue(
+                    mape_err < err,
+                    f'Model {model_cls} produces errors too high (several time series with covariates). Error = {mape_err}',
+                )
+
                 # when model is fit using 1 training and 1 covariate series, time series args are optional
                 model = model_cls(input_chunk_length=IN_LEN, output_chunk_length=OUT_LEN, **kwargs)
                 model.fit(series=self.ts_pass_train, covariates=self.time_covariates_train)

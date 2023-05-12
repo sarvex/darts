@@ -54,8 +54,8 @@ class VARIMA(ExtendedForecastingModel):
 
     def __str__(self):
         if self.d == 0:
-            return 'VARMA({},{})'.format(self.p, self.q)
-        return 'VARIMA({},{},{})'.format(self.p, self.d, self.q)
+            return f'VARMA({self.p},{self.q})'
+        return f'VARIMA({self.p},{self.d},{self.q})'
 
     def fit(self, series: TimeSeries, exog: Optional[TimeSeries] = None):
         self._last_values = series.last_values() # needed for back-transformation when d=1

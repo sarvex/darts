@@ -2,6 +2,7 @@
 
 """
 
+
 from darts.models import Prophet
 from darts.utils.statistics import check_seasonality
 from darts.utils import _build_tqdm_iterator
@@ -19,6 +20,7 @@ if __name__ == "__main__":
 
     info_dataset = pd.read_csv('dataset/M4-info.csv', delimiter=',').set_index('M4id')
 
+    seasonOut = 1
     for cat in data_categories[::-1]:
         # Load TimeSeries from M4
         ts_train = pkl.load(open("dataset/train_"+cat+".pkl", "rb"))
@@ -30,12 +32,8 @@ if __name__ == "__main__":
         m = int(info_dataset.Frequency[cat[0]+"1"])
         for train, test in _build_tqdm_iterator(zip(ts_train, ts_test), verbose=True):
             train_des = train
-            seasonOut = 1
-            if m > 1:
-                if check_seasonality(train, m=int(m), max_lag=2*m):
-                    pass
-                else:
-                    m = 1
+            if m > 1 and not check_seasonality(train, m=int(m), max_lag=2 * m):
+                m = 1
             try:
                 prophet_args = {
                                 'daily_seasonality': False,
@@ -44,18 +42,12 @@ if __name__ == "__main__":
                                 'frequency': None,
                                 'changepoint_range': 0.95,
                                 }
-                if cat == 'Daily':
+                if cat in ['Daily', 'Hourly']:
                     prophet_args['daily_seasonality'] = True
-                elif cat == 'Hourly':
-                    prophet_args['daily_seasonality'] = True
+                elif cat in ['Monthly', 'Quarterly', 'Yearly']:
+                    prophet_args['yearly_seasonality'] = True
                 elif cat == 'Weekly':
                     prophet_args['weekly_seasonality'] = True
-                elif cat == 'Monthly':
-                    prophet_args['yearly_seasonality'] = True
-                elif cat == 'Quarterly':
-                    prophet_args['yearly_seasonality'] = True
-                elif cat == 'Yearly':
-                    prophet_args['yearly_seasonality'] = True
                 prophet = Prophet(**prophet_args)
                 derivate = np.diff(train.univariate_values(), n=1)
                 jump = derivate.max()/(train.max().max() - train.min().min())

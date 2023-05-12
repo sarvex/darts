@@ -51,9 +51,11 @@ def fill_missing_values(series: TimeSeries, fill: Union[str, float] = 'auto', **
     TimeSeries
         A new TimeSeries with all missing values filled according to the rules above.
     """
-    raise_if_not(isinstance(fill, str) or isinstance(fill, float),
-                 "`fill` should either be a string or a float",
-                 logger)
+    raise_if_not(
+        isinstance(fill, (str, float)),
+        "`fill` should either be a string or a float",
+        logger,
+    )
     raise_if(isinstance(fill, str) and fill != 'auto',
              "invalid string for `fill`: can only be set to 'auto'",
              logger)
@@ -93,11 +95,7 @@ def extract_subseries(series: TimeSeries, min_gap_size: Optional[int] = 1) -> Li
     start_times = [series.start_time()] + (gaps_df['gap_end'] + freq).to_list()
     end_times = (gaps_df['gap_start'] - freq).to_list() + [series.end_time() + freq]
 
-    subseries = []
-    for start, end in zip(start_times, end_times):
-        subseries.append(series[start:end])
-
-    return subseries
+    return [series[start:end] for start, end in zip(start_times, end_times)]
 
 
 def _const_fill(series: TimeSeries, fill: float = 0) -> TimeSeries:

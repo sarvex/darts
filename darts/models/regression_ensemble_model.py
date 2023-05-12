@@ -43,10 +43,10 @@ class RegressionEnsembleModel(EnsembleModel):
             regression_model = LinearRegressionModel(lags_exog=0, fit_intercept=False)
 
         regression_model = RegressionModel(lags_exog=0, model=regression_model)
-        raise_if(regression_model.lags is not None and regression_model.lags_exog != [0], (
-            "`lags` of regression model must be `None` and `lags_exog` must be [0]. Given: {} and {}"
-            .format(regression_model.lags, regression_model.lags_exog)
-            )
+        raise_if(
+            regression_model.lags is not None
+            and regression_model.lags_exog != [0],
+            f"`lags` of regression model must be `None` and `lags_exog` must be [0]. Given: {regression_model.lags} and {regression_model.lags_exog}",
         )
         self.regression_model = regression_model
         self.train_n_points = regression_train_n_points

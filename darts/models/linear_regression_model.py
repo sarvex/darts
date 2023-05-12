@@ -44,4 +44,4 @@ class LinearRegressionModel(RegressionModel):
         )
 
     def __str__(self):
-        return 'LinearRegression(lags={}, lags_exog={})'.format(self.lags, self.lags_exog)
+        return f'LinearRegression(lags={self.lags}, lags_exog={self.lags_exog})'

@@ -168,10 +168,9 @@ class RegressionModelsTestCase(DartsBaseTestClass):
             prediction = model_instance.predict(n=len(test_f), exog=test_f)
             current_rmse = rmse(prediction, test_t)
 
-            self.assertTrue(current_rmse <= min_rmse, (
-                "{} model was not able to denoise data. A rmse score of {} was recorded."
-                .format(str(model_instance), current_rmse)
-                )
+            self.assertTrue(
+                current_rmse <= min_rmse,
+                f"{str(model_instance)} model was not able to denoise data. A rmse score of {current_rmse} was recorded.",
             )
 
     def test_models_denoising(self):

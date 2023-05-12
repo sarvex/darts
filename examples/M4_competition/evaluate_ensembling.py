@@ -26,12 +26,11 @@ def naive2_groe(ts: TimeSeries, n: int, m: int):
     # It will be better to use R functions
     ts_des = ts
     seasonOut = 1
-    if m > 1:
-        if check_seasonality(ts, m=int(m), max_lag=2 * m):
-            _, season = extract_trend_and_seasonality(ts, m, model=ModelMode.MULTIPLICATIVE)
-            ts_des = remove_from_series(ts, season, model=ModelMode.MULTIPLICATIVE)
-            seasonOut = season[-m:].shift(m)
-            seasonOut = seasonOut.append_values(seasonOut.values())[:n]
+    if m > 1 and check_seasonality(ts, m=m, max_lag=2 * m):
+        _, season = extract_trend_and_seasonality(ts, m, model=ModelMode.MULTIPLICATIVE)
+        ts_des = remove_from_series(ts, season, model=ModelMode.MULTIPLICATIVE)
+        seasonOut = season[-m:].shift(m)
+        seasonOut = seasonOut.append_values(seasonOut.values())[:n]
     naive2 = NaiveSeasonal(K=1)
 
     naive2.fit(ts_des)
@@ -87,8 +86,7 @@ def groe_owa(ts: TimeSeries, model: ForecastingModel, n1: int, m: int, p: int, f
             errors.append(np.sum(owa))
         except (ZeroDivisionError, ValueError):
             errors.append(0)
-    errors = np.sum(errors)
-    return errors
+    return np.sum(errors)
 
 
 class DeseasonForecastingModel(ForecastingModel):
@@ -105,21 +103,17 @@ class DeseasonForecastingModel(ForecastingModel):
         super().fit(train)
         train_des = train
         self.seasonOut = 1
-        if self.m > 1:
-            if check_seasonality(train, m=self.m, max_lag=2 * self.m):
-                _, season = extract_trend_and_seasonality(train, self.m, model=ModelMode.MULTIPLICATIVE)
-                train_des = remove_from_series(train, season, model=ModelMode.MULTIPLICATIVE)
-                seasonOut = season[-self.m:].shift(self.m)
-                self.seasonOut = seasonOut.append_values(seasonOut.values())
+        if self.m > 1 and check_seasonality(train, m=self.m, max_lag=2 * self.m):
+            _, season = extract_trend_and_seasonality(train, self.m, model=ModelMode.MULTIPLICATIVE)
+            train_des = remove_from_series(train, season, model=ModelMode.MULTIPLICATIVE)
+            seasonOut = season[-self.m:].shift(self.m)
+            self.seasonOut = seasonOut.append_values(seasonOut.values())
         self.model.fit(train_des)
 
     def predict(self, n: int):
         super().predict(n)
         pred = self.model.predict(n)
-        if isinstance(self.seasonOut, int):
-            return pred
-        else:
-            return pred * self.seasonOut[:n]
+        return pred if isinstance(self.seasonOut, int) else pred * self.seasonOut[:n]
 
 
 if __name__ == "__main__":
@@ -174,9 +168,7 @@ if __name__ == "__main__":
                                           (seasonOut if id_end is None else season[id_end:id_fin])
                                           for m in models_des]
 
-                model_predictions = models_simple_predictions + models_des_predictions
-
-                return model_predictions
+                return models_simple_predictions + models_des_predictions
 
             val_predictions = train_pred(id_end=-len(test))
             target_val = train.slice_intersect(val_predictions[0])

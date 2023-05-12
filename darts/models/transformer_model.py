@@ -174,9 +174,7 @@ class _TransformerModule(nn.Module):
         # from (1, batch_size, output_chunk_length * output_size)
         # to (batch_size, output_chunk_length, output_size)
         predictions = out[0, :, :]
-        predictions = predictions.view(-1, self.target_length, self.target_size)
-
-        return predictions
+        return predictions.view(-1, self.target_length, self.target_size)
 
 
 class TransformerModel(TorchForecastingModel):
