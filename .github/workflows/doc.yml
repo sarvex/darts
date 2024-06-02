@@ -50,7 +50,7 @@ jobs:
           ./gradlew buildDocs
 
       - name: "8. Publish documentation to gh-pages"
-        uses: s0/git-publish-subdir-action@v2.2.0
+        uses: s0/git-publish-subdir-action@v2.6.0
         env:
           REPO: self
           BRANCH: gh-pages
